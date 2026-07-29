@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#075f4e">
+  <meta name="description" content="Aktueller Systemstatus von Haviko.">
+  <link rel="icon" type="image/png" sizes="48x48" href="https://login.haviko.de/assets/favicon-48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://login.haviko.de/assets/apple-touch-icon.png">
+  <title>Systemstatus | Haviko</title>
+  <style>
+    :root {
+      --forest: #075f4e;
+      --forest-deep: #063c32;
+      --action: #087966;
+      --ink: #14211d;
+      --muted: #687671;
+      --line: #d9e4e0;
+      --surface: #ffffff;
+      --green: #0a8f52;
+      --red: #c23b3b;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100dvh; color: var(--ink); background: #f4f8f6; }
+    .shell { width: min(100%, 720px); margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 18px max(40px, env(safe-area-inset-bottom)); }
+    .brand { display: inline-flex; align-items: center; gap: 11px; color: var(--forest-deep); font-size: 18px; font-weight: 800; text-decoration: none; }
+    .brand img { width: 34px; height: 34px; border-radius: 10px; box-shadow: 0 8px 22px rgba(7,95,78,.2); }
+    .summary { display: flex; align-items: center; gap: 14px; margin: 34px 0 28px; padding: 22px; border-radius: 18px; background: var(--surface); border: 1px solid rgba(7,95,78,.14); box-shadow: 0 16px 44px rgba(6,60,50,.08); }
+    .summary-dot { width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto; }
+    .summary h1 { margin: 0; font-size: 21px; }
+    .summary p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .maintenance { display: none; margin-bottom: 22px; padding: 16px 18px; border-radius: 14px; background: #fff3e6; border: 1px solid #f4c98d; color: #8a5a12; font-size: 14px; line-height: 1.5; }
+    .maintenance.visible { display: block; }
+    .list { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); overflow: hidden; }
+    .row { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: 0; }
+    .row-dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+    .row-label { flex: 1; font-size: 15px; font-weight: 650; }
+    .row-note { color: var(--muted); font-size: 13px; }
+    .row-status { font-size: 13px; font-weight: 700; }
+    .row-status.ok { color: var(--green); }
+    .row-status.down { color: var(--red); }
+    .updated { margin-top: 18px; color: var(--muted); font-size: 12px; }
+    .loading { color: var(--muted); font-size: 14px; }
+    footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+    footer a { color: var(--forest); }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <a class="brand" href="https://haviko.de/">
+      <img src="https://login.haviko.de/assets/haviko-app-icon.png" alt="">
+      <span>Haviko</span>
+    </a>
+
+    <div class="summary" id="summary">
+      <div class="summary-dot" id="summary-dot" style="background:var(--muted)"></div>
+      <div>
+        <h1 id="summary-title">Status wird geladen…</h1>
+        <p id="summary-subtitle">Einen Moment bitte.</p>
+      </div>
+    </div>
+
+    <div class="maintenance" id="maintenance"></div>
+
+    <div class="list" id="list">
+      <div class="row"><span class="loading">Komponenten werden geladen…</span></div>
+    </div>
+
+    <p class="updated" id="updated"></p>
+
+    <footer>
+      <span>Haviko Systemstatus</span> ·
+      <a href="https://haviko.de/">haviko.de</a>
+    </footer>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://dlapwemckfhxklytbqkk.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_VeeQLARNn-sULZ4snvp3HA_Hd78H5RN";
+
+    function escapeHTML(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function loadStatus() {
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_system_status`, {
+          method: "POST",
+          headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+          body: "{}"
+        });
+        if (!response.ok) throw new Error("Status konnte nicht geladen werden.");
+        const status = await response.json();
+        render(status);
+      } catch (error) {
+        document.getElementById("summary-title").textContent = "Status nicht verfügbar";
+        document.getElementById("summary-subtitle").textContent = "Bitte versuche es in Kürze erneut.";
+        document.getElementById("list").innerHTML = "";
+      }
+    }
+
+    function render(status) {
+      const components = Array.isArray(status.components) ? status.components : [];
+      const allOperational = components.every((c) => c.isOperational);
+
+      const summaryDot = document.getElementById("summary-dot");
+      const summaryTitle = document.getElementById("summary-title");
+      const summarySubtitle = document.getElementById("summary-subtitle");
+      if (status.maintenance_mode) {
+        summaryDot.style.background = "var(--red)";
+        summaryTitle.textContent = "Wartungsarbeiten";
+        summarySubtitle.textContent = "Haviko ist aktuell eingeschränkt verfügbar.";
+      } else if (allOperational) {
+        summaryDot.style.background = "var(--green)";
+        summaryTitle.textContent = "Alle Systeme funktionieren";
+        summarySubtitle.textContent = "Keine bekannten Störungen.";
+      } else {
+        summaryDot.style.background = "var(--red)";
+        summaryTitle.textContent = "Eingeschränkte Funktion";
+        summarySubtitle.textContent = "Mindestens eine Komponente ist derzeit gestört.";
+      }
+
+      const maintenanceEl = document.getElementById("maintenance");
+      if (status.maintenance_mode && status.maintenance_message) {
+        maintenanceEl.textContent = status.maintenance_message;
+        maintenanceEl.classList.add("visible");
+      } else {
+        maintenanceEl.classList.remove("visible");
+      }
+
+      const listEl = document.getElementById("list");
+      listEl.innerHTML = components.length
+        ? components.map((component) => `
+          <div class="row">
+            <span class="row-dot" style="background:${component.isOperational ? "var(--green)" : "var(--red)"}"></span>
+            <span class="row-label">${escapeHTML(component.label)}</span>
+            ${component.note ? `<span class="row-note">${escapeHTML(component.note)}</span>` : ""}
+            <span class="row-status ${component.isOperational ? "ok" : "down"}">${component.isOperational ? "Betriebsbereit" : "Gestört"}</span>
+          </div>`).join("")
+        : `<div class="row"><span class="loading">Keine Komponenten hinterlegt.</span></div>`;
+
+      if (status.updatedAt) {
+        const formatted = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(status.updatedAt));
+        document.getElementById("updated").textContent = `Zuletzt aktualisiert: ${formatted}`;
+      }
+    }
+
+    loadStatus();
+    setInterval(loadStatus, 60000);
+  </script>
+</body>
+</html>
