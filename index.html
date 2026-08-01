@@ -90,6 +90,8 @@
     }
 
     async function loadStatus() {
+      const startedAt = Date.now();
+      const minLoadingDuration = 550;
       try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_system_status`, {
           method: "POST",
@@ -98,8 +100,16 @@
         });
         if (!response.ok) throw new Error("Status konnte nicht geladen werden.");
         const status = await response.json();
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < minLoadingDuration) {
+          await new Promise((resolve) => setTimeout(resolve, minLoadingDuration - elapsed));
+        }
         render(status);
       } catch (error) {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < minLoadingDuration) {
+          await new Promise((resolve) => setTimeout(resolve, minLoadingDuration - elapsed));
+        }
         document.getElementById("summary-title").textContent = "Status nicht verfügbar";
         document.getElementById("summary-subtitle").textContent = "Bitte versuche es in Kürze erneut.";
         document.getElementById("list").innerHTML = "";
@@ -110,6 +120,7 @@
       const components = Array.isArray(status.components) ? status.components : [];
       const allOperational = components.every((c) => c.isOperational);
 
+      const degraded = components.filter((c) => !c.isOperational);
       const summaryDot = document.getElementById("summary-dot");
       const summaryTitle = document.getElementById("summary-title");
       const summarySubtitle = document.getElementById("summary-subtitle");
@@ -117,19 +128,31 @@
         summaryDot.style.background = "var(--red)";
         summaryTitle.textContent = "Wartungsarbeiten";
         summarySubtitle.textContent = "Haviko ist aktuell eingeschränkt verfügbar.";
+      } else if (status.globalIncidentMessage) {
+        summaryDot.style.background = "var(--red)";
+        summaryTitle.textContent = "Eingeschränkte Funktion";
+        summarySubtitle.textContent = status.globalIncidentMessage;
       } else if (allOperational) {
         summaryDot.style.background = "var(--green)";
         summaryTitle.textContent = "Alle Systeme funktionieren";
         summarySubtitle.textContent = "Keine bekannten Störungen.";
+      } else if (degraded.length === 1) {
+        summaryDot.style.background = "var(--red)";
+        summaryTitle.textContent = "Eingeschränkte Funktion";
+        summarySubtitle.textContent = degraded[0].note?.trim()
+          || `Es gibt momentan Störungen im Bereich ${degraded[0].label}.`;
       } else {
         summaryDot.style.background = "var(--red)";
         summaryTitle.textContent = "Eingeschränkte Funktion";
-        summarySubtitle.textContent = "Mindestens eine Komponente ist derzeit gestört.";
+        summarySubtitle.textContent = `Es gibt momentan Störungen in mehreren Bereichen: ${degraded.map((c) => c.label).join(", ")}.`;
       }
 
       const maintenanceEl = document.getElementById("maintenance");
       if (status.maintenance_mode && status.maintenance_message) {
         maintenanceEl.textContent = status.maintenance_message;
+        maintenanceEl.classList.add("visible");
+      } else if (!status.maintenance_mode && status.globalIncidentMessage) {
+        maintenanceEl.textContent = status.globalIncidentMessage;
         maintenanceEl.classList.add("visible");
       } else {
         maintenanceEl.classList.remove("visible");
@@ -146,10 +169,8 @@
           </div>`).join("")
         : `<div class="row"><span class="loading">Keine Komponenten hinterlegt.</span></div>`;
 
-      if (status.updatedAt) {
-        const formatted = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(status.updatedAt));
-        document.getElementById("updated").textContent = `Zuletzt aktualisiert: ${formatted}`;
-      }
+      const formatted = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
+      document.getElementById("updated").textContent = `Zuletzt aktualisiert: ${formatted}`;
     }
 
     loadStatus();
