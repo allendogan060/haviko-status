@@ -43,12 +43,17 @@
     .row-status.down { color: var(--red); }
     .updated { margin-top: 18px; color: var(--muted); font-size: 12px; }
     .loading { color: var(--muted); font-size: 14px; }
-    footer { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; color: var(--muted); font-size: 13px; }
-    footer .haviko-footer-brand { font-weight: 400; }
-    footer .haviko-footer-brand strong { font-weight: 800; color: var(--forest-deep); }
-    footer .haviko-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
-    footer a:link, footer a:visited { color: var(--muted); text-decoration: none; }
-    footer a:hover { color: var(--forest-deep); }
+    .site-footer {
+      margin-top: 40px;
+      padding: 28px 0 max(28px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+    }
+    .footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; }
+    .footer-brand { color: var(--muted); font-size: 13px; }
+    .footer-brand strong { color: var(--forest-deep); font-weight: 800; }
+    .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; font-size: 13px; }
+    .footer-links a:link, .footer-links a:visited { color: var(--muted); text-decoration: none; }
+    .footer-links a:hover { color: var(--forest-deep); }
   </style>
 </head>
 <body>
@@ -74,14 +79,16 @@
 
     <p class="updated" id="updated"></p>
 
-    <footer>
-      <span class="haviko-footer-brand"><strong>Haviko</strong> Systemstatus</span>
-      <nav class="haviko-footer-links" aria-label="Rechtliches und Support">
-        <a href="https://haviko.de/datenschutz">Datenschutz</a>
-        <a href="https://haviko.de/impressum">Impressum</a>
-        <a href="https://support.haviko.de/">Support</a>
-        <a href="https://haviko.de/">haviko.de</a>
-      </nav>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span class="footer-brand"><strong>Haviko</strong> Systemstatus</span>
+        <div class="footer-links">
+          <a href="https://haviko.de/datenschutz">Datenschutz</a>
+          <a href="https://haviko.de/impressum">Impressum</a>
+          <a href="https://support.haviko.de/">Support</a>
+          <a href="https://haviko.de/">haviko.de</a>
+        </div>
+      </div>
     </footer>
   </main>
 
